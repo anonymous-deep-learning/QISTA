@@ -5,13 +5,13 @@
 # Note that FQISTA is only considered in this code, not appeared
 # in the paper. FQISTA is for checking the performance of QISTA
 # with the lesser iteration number.
-
-# If this is your first time, I will show you that both
-# QISTA and FQISTA have the same reconstruction result.
+# 
+# If this is your first time, this code will show you that both
+# QISTA and FQISTA have the same reconstruction result (not the same
+# parameter setting within the paper), the code will take a while.
 # After that, you can check QISTA by using FQISTA.
 
-first_time = True 
-
+first_time = True
 
 print(chr(27) + "[2J")
 import torch
@@ -20,11 +20,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-
 ###########################################
 ############ parameter setting ############
 ###########################################
-n,m,k = 1024,256,60
+n,m,k = 1024,256,64
 q = 0.05
 epsilon = 1.0 * torch.ones(n,1)
 soft_lambda = 1e-5
@@ -38,22 +37,25 @@ signal_var = 1.0
 signal_std = math.sqrt(signal_var)
 if first_time == True:
     run_time = 1
-    max_iter_ISTA = 1000000
-    max_iter_FISTA = 20000
-    max_iter_QISTA = 10000000
-    max_iter_FQISTA = 300000
+    max_iter_ISTA = 100000
+    max_iter_FISTA = 100000
+    max_iter_QISTA = 500000
+    max_iter_FQISTA = 30000
     max_iter = max(max_iter_ISTA,max_iter_FISTA,max_iter_QISTA,max_iter_FQISTA)
     x_axis_show = max_iter / 20
-    show_per = 10000
+    show_per = 5000
+    epsilon = 1.0 * torch.ones(n,1)
+    soft_lambda = 1e-3
+    q_lambda = 1e-1
 else:
     run_time = 20
     max_iter_ISTA = 10000
-    max_iter_FISTA = 20000
+    max_iter_FISTA = 50000
     max_iter_QISTA = 10000
     max_iter_FQISTA = 300000
     max_iter = max(max_iter_ISTA,max_iter_FISTA,max_iter_QISTA,max_iter_FQISTA)
     x_axis_show = max_iter / 20
-    show_per = 10000
+    show_per = 5000
 
 def generate_x(k):
     x_temp = torch.zeros(n,1)
@@ -103,7 +105,7 @@ for run_i in range(run_time):
     x_ISTA = torch.zeros(n,1)
     for i in range(max_iter_ISTA):
         if (i+1)%show_per==0:
-            print('ISTA   : round',run_i+1,' i =',i+1,'/',max_iter_ISTA)
+            print('\rISTA   : round',run_i+1,' i =',i+1,'/',max_iter_ISTA,end='')
         temp_ISTA = y - A.mm(x_ISTA)
         r_ISTA = x_ISTA + beta*At.mm(temp_ISTA)
         x_ISTA = soft_threshold(r_ISTA,soft_lambda)
@@ -111,6 +113,7 @@ for run_i in range(run_time):
         SNR = 10.0*torch.log(reference/residue)/math.log(10.0)
         rec_ISTA[i,run_i] = SNR.clone()
     rec_ISTA_RE[run_i] = torch.sqrt(residue/reference).clone()
+    print('')
 ##########   end ISTA   ############
 ####################################
         
@@ -121,7 +124,7 @@ for run_i in range(run_time):
     x_FISTA_prev = torch.zeros(n,1)
     for i in range(max_iter_FISTA):
         if (i+1)%show_per==0:
-            print('FISTA  : round',run_i+1,' i =',i+1,'/',max_iter_FISTA)
+            print('\rFISTA  : round',run_i+1,' i =',i+1,'/',max_iter_FISTA,end='')
         temp_FISTA = y - A.mm(x_FISTA)
         r_FISTA = x_FISTA + beta*At.mm(temp_FISTA)
         r_FISTA += ((i-2)/(i+1))*(x_FISTA-x_FISTA_prev)
@@ -131,6 +134,7 @@ for run_i in range(run_time):
         SNR = 10.0*torch.log(reference/residue)/math.log(10.0)
         rec_FISTA[i,run_i] = SNR.clone()
     rec_FISTA_RE[run_i] = torch.sqrt(residue/reference).clone()
+    print('')
 ##########   end FISTA   ###########
 ####################################
         
@@ -140,7 +144,7 @@ for run_i in range(run_time):
     x_QISTA = torch.zeros(n,1)
     for i in range(max_iter_QISTA):
         if (i+1)%show_per==0:
-            print('QISTA  : round',run_i+1,' i =',i+1,'/',max_iter_QISTA)
+            print('\rQISTA  : round',run_i+1,' i =',i+1,'/',max_iter_QISTA,end='')
         temp_QISTA = y - A.mm(x_QISTA)
         r_QISTA = x_QISTA + beta*At.mm(temp_QISTA)
         q_truncated = q_lambda*beta/(1.0*((x_QISTA.abs()+epsilon)**(1-q)))
@@ -149,6 +153,7 @@ for run_i in range(run_time):
         SNR = 10.0*torch.log(reference/residue)/math.log(10.0)
         rec_QISTA[i,run_i] = SNR.clone()
     rec_QISTA_RE[run_i] = torch.sqrt(residue/reference).clone()
+    print('')
 ##########   end QISTA   ###########
 ####################################
         
@@ -159,7 +164,7 @@ for run_i in range(run_time):
     x_FQISTA_prev = torch.zeros(n,1)
     for i in range(max_iter_FQISTA):
         if (i+1)%show_per==0:
-            print('FQISTA : round',run_i+1,' i =',i+1,'/',max_iter_FQISTA)
+            print('\rFQISTA : round',run_i+1,' i =',i+1,'/',max_iter_FQISTA,end='')
         temp_FQISTA = y - A.mm(x_FQISTA)
         r_FQISTA = x_FQISTA + beta*At.mm(temp_FQISTA)
         r_FQISTA += ((i-2)/(i+1))*(x_FQISTA-x_FQISTA_prev)
@@ -170,6 +175,7 @@ for run_i in range(run_time):
         SNR = 10.0*torch.log(reference/residue)/math.log(10.0)
         rec_FQISTA[i,run_i] = SNR.clone()
     rec_FQISTA_RE[run_i] = torch.sqrt(residue/reference).clone()
+    print('')
 ##########   end FQISTA   ##########
 ####################################
         
@@ -179,13 +185,7 @@ for run_i in range(run_time):
     results_QISTA = rec_QISTA.cpu().numpy()
     results_FQISTA = rec_FQISTA.cpu().numpy()
     
-    print('\n  k=',k,' q=',q,'  results at max iter:')
-    print('    ISTA   : round',run_i+1,' SNR=[',results_ISTA[max_iter_ISTA-1,run_i],']  ')
-    print('    FISTA  : round',run_i+1,' SNR=[',results_FISTA[max_iter_FISTA-1,run_i],']  ')
-    print('    QISTA  : round',run_i+1,' SNR=[',results_QISTA[max_iter_QISTA-1,run_i],']  ')
-    print('    FQISTA : round',run_i+1,' SNR=[',results_FQISTA[max_iter_FQISTA-1,run_i],']  ')
-    
-    print('  mean of last 1000 iter.:')
+    print('\n  k=',k,' q=',q,'  mean SNR of last 1000 iter.:')
     print('    ISTA   : round',run_i+1,' SNR=[',results_ISTA[-1000:,run_i].mean(),']  ')
     print('    FISTA  : round',run_i+1,' SNR=[',results_FISTA[-1000,run_i].mean(),']  ')
     print('    QISTA  : round',run_i+1,' SNR=[',results_QISTA[-1000,run_i].mean(),']  ')
@@ -199,7 +199,7 @@ for run_i in range(run_time):
     
     
     using_time = time.time() - time_begin
-    print('\nusing time of round {0} : {1:>.3f} sec\n\n\n'.format(run_i+1,using_time))
+    print('\nusing time of round {0} : {1:>.3f} sec'.format(run_i+1,using_time))
     total_using_time += using_time
     
     x_axis = np.arange(1,max_iter+1,1)
@@ -208,6 +208,7 @@ for run_i in range(run_time):
     plt.xlabel('iter',fontsize=16,fontweight='bold')
     plt.ylabel('SNR',fontsize=16,fontweight='bold')
     plt.xticks(np.arange(0,max_iter+1,x_axis_show))
+    plt.xscale('log')
     y_max_F = np.ceil((results_FISTA.max()/10))*10
     y_max_FQ = np.ceil((results_FQISTA.max()/10))*10
     y_max = max(y_max_F,y_max_FQ)
@@ -230,24 +231,18 @@ for run_i in range(run_time):
     
     
 
-print('\n\n\n\nfinish...')
+print('\n\n\nfinish...')
 print('  k = {0}, q = {1}, total using time: {2:>.3f}'.format(k,q,total_using_time))
-print('The results:')
 results_ISTA_mean   = results_ISTA.mean(1)
 results_FISTA_mean  = results_FISTA.mean(1)
 results_QISTA_mean  = results_QISTA.mean(1)
 results_FQISTA_mean = results_FQISTA.mean(1)
 
-print('mean SNR of ISTA     :[',results_ISTA_mean[max_iter_ISTA-1],']  ',end='\n')
-print('mean SNR of FISTA    :[',results_FISTA_mean[max_iter_FISTA-1],']  ',end='\n')
-print('mean SNR of QISTA-I  :[',results_QISTA_mean[max_iter_QISTA-1],']  ',end='\n')
-print('mean SNR of FQISTA-I :[',results_FQISTA_mean[max_iter_FQISTA-1],']  ',end='\n')
-
 print('mean SNR of last 1000 iter.:')
-print('mean SNR of ISTA     :[',results_ISTA_mean[-1000].mean(),']  ',end='\n')
-print('mean SNR of FISTA    :[',results_FISTA_mean[-1000].mean(),']  ',end='\n')
-print('mean SNR of QISTA-I  :[',results_QISTA_mean[-1000].mean(),']  ',end='\n')
-print('mean SNR of FQISTA-I :[',results_FQISTA_mean[-1000].mean(),']  ',end='\n')
+print('  mean SNR of ISTA     :[',results_ISTA_mean[-1000].mean(),']  ',end='\n')
+print('  mean SNR of FISTA    :[',results_FISTA_mean[-1000].mean(),']  ',end='\n')
+print('  mean SNR of QISTA-I  :[',results_QISTA_mean[-1000].mean(),']  ',end='\n')
+print('  mean SNR of FQISTA-I :[',results_FQISTA_mean[-1000].mean(),']  ',end='\n')
 
 
 
@@ -257,6 +252,7 @@ plt.plot(x_axis[0:max_iter_ISTA],results_ISTA_mean,color="b", linewidth=2,linest
 plt.xlabel('iter',fontsize=16,fontweight='bold')
 plt.ylabel('SNR',fontsize=16,fontweight='bold')
 plt.xticks(np.arange(0,max_iter+1,x_axis_show))
+plt.xscale('log')
 y_max_F = np.ceil((results_FISTA_mean.max()/10))*10
 y_max_FQ = np.ceil((results_FQISTA_mean.max()/10))*10
 y_max = max(y_max_F,y_max_FQ)
@@ -280,16 +276,17 @@ count_ISTA = 0
 count_FISTA = 0
 count_QISTA = 0
 count_FQISTA = 0
+print('')
 for ii in range(run_time):
-    print('ISTA : round {0} RE = [{1:>.5e}]'.format(ii+1,rec_ISTA_RE[ii].item()))
+    print('ISTA   : round {0} RE = [{1:>.5e}]'.format(ii+1,rec_ISTA_RE[ii].item()))
     if rec_ISTA_RE[ii] < 1e-4:
         count_ISTA += 1
 for ii in range(run_time):
-    print('FISTA : round {0} RE = [{1:>.5e}]'.format(ii+1,rec_FISTA_RE[ii].item()))
+    print('FISTA  : round {0} RE = [{1:>.5e}]'.format(ii+1,rec_FISTA_RE[ii].item()))
     if rec_FISTA_RE[ii] < 1e-4:
         count_FISTA += 1
 for ii in range(run_time):
-    print('QISTA : round {0} RE = [{1:>.5e}]'.format(ii+1,rec_QISTA_RE[ii].item()))
+    print('QISTA  : round {0} RE = [{1:>.5e}]'.format(ii+1,rec_QISTA_RE[ii].item()))
     if rec_QISTA_RE[ii] < 1e-4:
         count_QISTA += 1
 for ii in range(run_time):
