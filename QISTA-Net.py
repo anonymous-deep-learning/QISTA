@@ -25,6 +25,8 @@ max_layers = 16
 
 num_in_testing = 100 # for testing in 100 tests
 testing_batch_size = 1 # in each test, run only single vector
+noisy = True
+noise_snr = 20.0 # only work when noisy = True
 # =========================================
 # =========================================
 
@@ -45,6 +47,17 @@ def generate_x(batch_size):
     support = torch.bernoulli(p_nonzero * torch.ones(n,batch_size))
     nonzero = torch.normal(0.0, signal_std * torch.ones(n,batch_size))
     return torch.mul(nonzero, support)
+
+def generate_noisy_measurement(x0,A,noise_snr):
+    batch_size = x0.size(1)
+    m = A.size(0)
+    y_temp = A.mm(x0)
+    ref = y_temp.norm(2,0).norm(2).pow(2.0)
+    noise_var = ref * 10.0**(-noise_snr/10.0)/(m*batch_size)
+    noise_std = math.sqrt(noise_var)
+    noise = torch.normal(0.0, noise_std * torch.ones(m,batch_size)).to(device)
+    y_noise = A.mm(x0) + noise
+    return y_noise
 
 def soft_threshold(x,s):
     temp_p = (x-s).clamp(min=0)
@@ -178,7 +191,10 @@ for num_layers in range(1,max_layers+1):
         train_no = 0
         while train_no < num_train_for_each_lr:
             x0 = generate_x(batch_size).to(device)
-            y = A.mm(x0)
+            if noisy == False:
+                y = A.mm(x0)
+            elif noisy == True:
+                y = generate_noisy_measurement(x0,A,noise_snr).to(device)
             x = torch.zeros(n,batch_size).to(device)
             opt = torch.optim.Adam(network.parameters(),lr=learning_rate)
             x_output = network(x,y,num_layers)
@@ -223,7 +239,10 @@ for num_layers in range(1,max_layers+1):
                 SNR = torch.Tensor([0]).to(device)
                 for i in range(num_in_testing):
                     x0 = generate_x(testing_batch_size).to(device)
-                    y = A.mm(x0)
+                    if noisy == False:
+                        y = A.mm(x0)
+                    elif noisy == True:
+                        y = generate_noisy_measurement(x0,A,noise_snr).to(device)
                     x = torch.zeros(n,testing_batch_size).to(device)
                     x_output = network(x,y,num_layers)
                     reference = x0.norm(2,0).norm(2).pow(2.0)
@@ -252,7 +271,10 @@ for num_layers in range(1,max_layers+1):
     SNR = torch.Tensor([0]).to(device)
     for i in range(num_in_testing):
         x0 = generate_x(testing_batch_size).to(device)
-        y = A.mm(x0)
+        if noisy == False:
+            y = A.mm(x0)
+        elif noisy == True:
+            y = generate_noisy_measurement(x0,A,noise_snr).to(device)
         x = torch.zeros(n,testing_batch_size).to(device)
         x_output = network(x,y,num_layers)
         reference = x0.norm(2,0).norm(2).pow(2.0)
@@ -290,7 +312,10 @@ for num_layers in range(1,max_layers+1):
 total_using_time = time.time() - total_time_start
 print('\ntotal using time: {0:.2f} sec'.format(total_using_time))
 print('with setting:')
-print('  n =',n,'m =',m,'k ~',k,'q =',q)
+if noisy == False:
+    print('  n =',n,'m =',m,'k ~',k,'q =',q)
+elif noisy == True:
+    print('  n =',n,'m =',m,'k ~',k,'q =',q, 'noise SNR =',noise_snr)
 print('  max layer =',max_layers)
 print('final results:')
 print('  MSE =',MSE_results.cpu().data.numpy()[-1])
@@ -298,7 +323,10 @@ print('  RE  =',RE_results.cpu().data.numpy()[-1])
 print('  SNR =',SNR_results.cpu().data.numpy()[-1])
 logging.info('\ntotal using time: {0:.2f} sec'.format(total_using_time))
 logging.info('with setting:')
-logging.info('  n = {0}, m = {1}, k ~ {2}, q = {3}'.format(n,m,k,q))
+if noisy == False:
+    logging.info('  n = {0}, m = {1}, k ~ {2}, q = {3}'.format(n,m,k,q))
+elif noisy == True:
+    logging.info('  n = {0}, m = {1}, k ~ {2}, q = {3}, noise SNR = {4}'.format(n,m,k,q,noise_snr))
 logging.info('  max layer = {0}'.format(max_layers))
 logging.info('final results:')
 logging.info('  MSE = {0:.6f}'.format(MSE_results.cpu().data.numpy()[-1]))
